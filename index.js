@@ -3,12 +3,13 @@ process.on('uncaughtException', (err) => {
     process.exit(1); // Принудительно завершаем процесс
   });
   
-require('dotenv').config()
+require('dotenv').config();
 const express = require('express');
-const app = express(); 
-const { Bot, GrammyError, HttpError, Keyboard, InlineKeyboard } = require('grammy')
+
+const { Bot, GrammyError, HttpError, Keyboard, InlineKeyboard, webhookCallback } = require('grammy')
 
 const bot = new Bot(process.env.BOT_API_KEY)
+const app = express();
 
 bot.api.setMyCommands ([
     {
