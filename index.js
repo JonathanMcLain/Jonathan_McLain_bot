@@ -1,53 +1,46 @@
-process.on('uncaughtException', (err) => {
-    console.error('Необработанная ошибка:', err);
-    process.exit(1); // Принудительно завершаем процесс
-  });
-  
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
+const { Bot, Keyboard, InlineKeyboard } = require('grammy');
 
-const { Bot, GrammyError, HttpError, Keyboard, InlineKeyboard, webhookCallback } = require('grammy')
+// Настройка логгирования
+const logStream = fs.createWriteStream(path.join(__dirname, 'bot.log'), { flags: 'a' });
+const log = (message) => {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  logStream.write(logMessage);
+  console.log(logMessage);
+};
 
-const bot = new Bot(process.env.BOT_API_KEY)
+const bot = new Bot(process.env.BOT_API_KEY);
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-bot.api.setMyCommands ([
-    {
-        command: 'start',
-        description: 'Старт бота',
-    },
-    {
-        command: 'say_me',
-        description: 'Говорит что-то',
-    },
-    {
-        command: 'help',
-        description: 'Список всех команд',
-    },
-    {
-        command: 'id',
-        description: 'Покажет ваш ID',
-    },
-    {
-        command: 'share',
-        description: 'Поделиться своими данными',
-    },
-    {
-        command: 'mood',
-        description: 'Спросит ваше настроение',
-    },
-    {
-        command: 'choice',
-        description: 'Загадать цифру',
-    },
+// Middleware
+app.use(express.json());
+
+// ========== КОМАНДЫ БОТА ========== //
+bot.api.setMyCommands([
+  { command: 'start', description: 'Старт бота' },
+  { command: 'say_me', description: 'Говорит что-то' },
+  { command: 'help', description: 'Список всех команд' },
+  { command: 'id', description: 'Покажет ваш ID' },
+  { command: 'share', description: 'Поделиться своими данными' },
+  { command: 'mood', description: 'Спросит ваше настроение' },
+  { command: 'choice', description: 'Загадать цифру' },
 ]);
 
 bot.command('start', async (ctx) => {
-    await ctx.reply('Привет! Я - Бот.')
-})
+  await ctx.reply('Привет! Я - Бот.');
+  log(`Пользователь ${ctx.from.id} вызвал /start`);
+});
+
 bot.command('id', async (ctx) => {
-    await ctx.reply(`Ваш ID: ${ctx.from.id}`)
-})
+  await ctx.reply(`Ваш ID: ${ctx.from.id}`);
+  log(`Пользователь ${ctx.from.id} запросил ID`);
+});
+
 bot.command('help', async (ctx) => {
     await ctx.reply('Тут находятся все команды бота: \n\n /start - Запуск бота. \n /help - Вызвать помощь по командам. \n /say_me - бот скажет рандомную фразу. \n /id - Скажет ваш ID. \n /share - Поделится с данными боту. \n /mood - Спросит ваше настроение. \n /choice - угадает вами загаданное число.')
 })
@@ -97,26 +90,32 @@ bot.on(':location', async (ctx) => {
 bot.on(':poll', async (ctx) => {
     await ctx.reply('Отлично, ты отправил опрос')
 })
-bot.catch((err) => {
-    const ctx = err.ctx;
-    console.error(`Error while handling update ${ctx.update.update_id}`);
-    const e = err.error;
-
-    if(e instanceof GrammyError){
-        console.error("Error in request:", e.description);
+// ===== ЗАПУСК СЕРВЕРА ===== //
+const startServer = async () => {
+    if (process.env.NODE_ENV === 'production') {
+      // Режим для Render.com (Webhook)
+      app.use(express.json());
+      
+      app.post('/webhook', async (req, res) => {
+        try {
+          await bot.handleUpdate(req.body, res);
+        } catch (err) {
+          console.error('Webhook error:', err);
+          res.status(500).send('Error');
+        }
+      });
+  
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT} (Webhook mode)`);
+      });
+    } else {
+      // Локальный режим (Polling)
+      bot.start();
+      console.log('Bot started in polling mode');
     }
-    else if (e instanceof HttpError){
-        console.error("Could not contact Telegram:", e);
-    } 
-    else {
-        console.error("Unknown error", e);
-    }
-})
-
-if (process.env.NODE_ENV === 'production') {
-    bot.api.setWebhook(`https://your-render-url.onrender.com/webhook`);
-    app.use(webhookCallback(bot, 'express'));
-    app.listen(3000, () => console.log('Бот запущен через Webhook'));
-  } else {
-    bot.start(); // Локально используем polling
-  }
+  };
+  
+  startServer().catch(console.error);
+  
+  // Обработка ошибок
+  bot.catch(err => console.error('Bot error:', err));
