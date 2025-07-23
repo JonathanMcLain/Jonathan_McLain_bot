@@ -2,7 +2,9 @@ process.on('uncaughtException', (err) => {
     console.error('Необработанная ошибка:', err);
     process.exit(1); // Принудительно завершаем процесс
   });
+  
 require('dotenv').config()
+const app = express(); 
 const { Bot, GrammyError, HttpError, Keyboard, InlineKeyboard } = require('grammy')
 
 const bot = new Bot(process.env.BOT_API_KEY)
