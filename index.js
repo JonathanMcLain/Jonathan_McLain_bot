@@ -20,6 +20,15 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
+app.post('/webhook', async (req, res) => {
+    try {
+      await bot.handleUpdate(req.body, res);
+    } catch (err) {
+      console.error('Ошибка webhook:', err);
+      res.status(500).send('Error');
+    }
+  });
+
 // ========== КОМАНДЫ БОТА ========== //
 bot.api.setMyCommands([
   { command: 'start', description: 'Старт бота' },
