@@ -1,3 +1,7 @@
+process.on('uncaughtException', (err) => {
+    console.error('Необработанная ошибка:', err);
+    process.exit(1); // Принудительно завершаем процесс
+  });
 require('dotenv').config()
 const { Bot, GrammyError, HttpError, Keyboard, InlineKeyboard } = require('grammy')
 
@@ -105,4 +109,10 @@ bot.catch((err) => {
     }
 })
 
-bot.start();
+if (process.env.NODE_ENV === 'production') {
+    bot.api.setWebhook(`https://your-render-url.onrender.com/webhook`);
+    app.use(webhookCallback(bot, 'express'));
+    app.listen(3000, () => console.log('Бот запущен через Webhook'));
+  } else {
+    bot.start(); // Локально используем polling
+  }
